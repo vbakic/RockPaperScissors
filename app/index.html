@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Rock Paper Scissors</title>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+  
+  <script src="./app.js"></script>
+</head>
+<body>
+
+    <div>
+        <button onclick="App.pauseContract()">Pause Contract</button>
+        <button onclick="App.resumeContract()">Resume Contract</button>
+        <button onclick="App.killContract()">Kill Contract</button>
+        <span id="contractState">Loading...</span>
+    </div>    
+
+    <div>
+        <label>New owner:</label>
+        <select id="ownerSelector">
+            <option selected="selected">0</option>
+            <option>1</option>
+            <option>2</option>
+            <option>3</option>
+            <option>4</option>
+        </select>
+        <button onclick="App.changeOwner()">Change Owner</button>
+        <br>
+        <span>Current Owner index:</span>
+        <input disabled="disabled" id="currentOwner" />
+    </div>
+
+    <div class="balance" style="margin-top: 20px;">
+        <label>Contract balance (Ether):
+        <input disabled="disabled" id="contract" />
+        </label>
+        <p id="gameStatus">Game not started yet</p>
+    </div>
+
+    <div style="margin-top: 20px;">
+        <h3>Player 1</h3>    
+        <label>Player 1:</label>
+        <select id="player1">
+            <option selected="selected">0</option>
+            <option>1</option>
+            <option>2</option>
+            <option>3</option>
+            <option>4</option>
+        </select>
+
+        <div style="margin-top: 20px;">
+            <label>Move:</label>
+            <select id="move1">
+                <option value="0" selected="selected">N/A</option>
+                <option value="1">Rock</option>
+                <option value="2">Paper</option>
+                <option value="3">Scissors</option>
+            </select>
+            <br>
+            <label>Stake balance (Ether):
+            <input id="stake1" />
+            </label>
+            <br>
+            <button onclick="App.submitMove1()">Submit your move</button>
+        </div>
+    
+        <div class="balance" style="margin-top: 20px;">        
+            <label>Contract Stake (ether):
+                <input disabled="disabled" id="player1Stake" />
+            </label>
+            <br>
+            <label>Ether Balance (ether):
+                <input disabled="disabled" id="player1Balance" />
+            </label>
+            <br>
+            <label>Amount to withdraw (ether):
+                <input id="amountToWithdraw1" />
+            </label>
+            <button onclick="App.withdrawEther1()">Withdraw Ether</button>
+        </div>
+
+    </div>
+    
+
+    <div style="margin-top: 20px;">
+        <h3>Player 2</h3>
+        <label>Player 2:</label>
+        <select id="player2">
+            <option>0</option>
+            <option selected="selected">1</option>
+            <option>2</option>
+            <option>3</option>
+            <option>4</option>
+        </select>
+
+        <div style="margin-top: 20px;">
+            <label>Move:</label>
+            <select id="move2">
+                <option value="0" selected="selected">N/A</option>
+                <option value="1">Rock</option>
+                <option value="2">Paper</option>
+                <option value="3">Scissors</option>
+            </select>
+            <br>
+            <label>Stake balance (Ether):
+            <input id="stake2" />
+            </label>
+            <br>
+            <button onclick="App.submitMove2()">Submit your move</button>
+        </div>
+    
+        <div class="balance" style="margin-top: 20px;">        
+            <label>Contract Stake (ether):
+                <input disabled="disabled" id="player2Stake" />
+            </label>
+            <br>
+            <label>Ether Balance (ether):
+                <input disabled="disabled" id="player2Balance" />
+            </label>
+            <br>
+            <label>Amount to withdraw (ether):
+                <input id="amountToWithdraw2" />
+            </label>
+            <button onclick="App.withdrawEther2()">Withdraw Ether</button>
+        </div>
+
+    </div>
+
+    
+    
+    
+
+
+    
+
+    
+    
+        
+    <style>
+        h3 {margin: 10px 0px; }
+        input {width: 130px}
+        div {margin: 5px}
+    </style>
+
+</body>
+</html>
