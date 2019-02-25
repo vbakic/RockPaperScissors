@@ -36,20 +36,20 @@ contract Pausable is Owned {
     }
 
     function pauseContract() public onlyIfRunning onlyOwner returns(bool) {
-        emit LogPauseContract(msg.sender);
         state = PossibleStates.Paused;
+        emit LogPauseContract(msg.sender);
         return true;
     }
 
     function resumeContract() public onlyOwner onlyIfPaused returns(bool) {
-        emit LogResumeContract(msg.sender);
         state = PossibleStates.Running;
+        emit LogResumeContract(msg.sender);
         return true;
     }
 
     function killContract() public onlyOwner onlyIfPaused returns (bool) {
-        emit LogKillContract(msg.sender);
         state = PossibleStates.Killed;
+        emit LogKillContract(msg.sender);
         return true;
     }
 

@@ -11,6 +11,9 @@ contract RockPaperScissors is Pausable {
     event LogChangeRevokePeriod(address indexed caller, uint newrevokePeriod);
     event LogPullOutFromGame(address indexed caller);
     event LogSubmitMove(address indexed caller, uint amount);
+    event LogRevealMove(address indexed caller, uint8 move, bytes32 plainPassword);
+    event LogEndGame(address indexed caller, address indexed player1, address indexed player2);
+    event LogResetGame(address indexed caller, address indexed player1, address indexed player2);
     
     enum PossibleMoves { NotPlayedYet, Rock, Paper, Scissors }
     
@@ -22,31 +25,31 @@ contract RockPaperScissors is Pausable {
     address public player2;
     bytes32 public p1HashedMove;
     bytes32 public p2HashedMove;
+    PossibleMoves player1move;
+    PossibleMoves player2move;
     
+    mapping (bytes32 => bool) public usedHashes;
     mapping (address => uint) public balances;
     
     constructor(uint8 initialState, uint defaultrevokePeriod) public Pausable(initialState) {
         changeRevokePeriod(defaultrevokePeriod);
     }
     
-    function encryptMove(uint8 move) public view returns (bytes32) {
+    function encryptMove(uint8 move, bytes32 plainPassword) public view returns (bytes32) {
         require(move != 0, "Error: you need to submit a valid move");
-        return keccak256(abi.encodePacked(move, msg.sender, address(this)));
+        require(plainPassword != "", "Error: you need to submit a valid password");
+        return keccak256(abi.encodePacked(move, plainPassword, msg.sender, address(this)));
     }
     
-    function decryptMove(address player, bytes32 moveHash) public view returns (PossibleMoves) {
-        bytes32 decryptedMove;
-        decryptedMove = keccak256(abi.encodePacked(PossibleMoves.Rock, player, address(this)));
-        if(decryptedMove == moveHash) {
-            return PossibleMoves.Rock;
-        }
-        decryptedMove = keccak256(abi.encodePacked(PossibleMoves.Paper, player, address(this)));
-        if(decryptedMove == moveHash) {
-            return PossibleMoves.Paper;
-        }
-        decryptedMove = keccak256(abi.encodePacked(PossibleMoves.Scissors, player, address(this)));
-        if(decryptedMove == moveHash) {
-            return PossibleMoves.Scissors;
+    function decryptMove(uint8 move, bytes32 plainPassword) internal {
+        require(player2 != address(0), "Error: player2 hasn't played yet!");
+        bytes32 decryptedMove = keccak256(abi.encodePacked(move, plainPassword, msg.sender, address(this)));
+        if(msg.sender == player1) {
+            require(decryptedMove == p1HashedMove, "Error: that is not the move you played!");
+            player1move = PossibleMoves(move);
+        } else if(msg.sender == player2) {
+            require(decryptedMove == p2HashedMove, "Error: that is not the move you played!");
+            player2move = PossibleMoves(move);
         }
     }
     
@@ -77,38 +80,56 @@ contract RockPaperScissors is Pausable {
         return true;
     }
     
-    function submitMove(bytes32 hashedMove) public onlyIfAlive onlyIfRunning payable returns(bool) {
+    function submitMove(bytes32 hashedMove, uint amountToPlayWith) public onlyIfAlive onlyIfRunning payable returns(bool) {
         
         require(player1 != msg.sender, "Error: player 2 cannot be the same as player 1");
+        require(usedHashes[hashedMove] == false, "Error: you cannot use same hash twice");
         
         if(msg.value > 0) {
             balances[msg.sender] = balances[msg.sender].add(msg.value);
         }
-        
+
+        require(balances[msg.sender] >= amountToPlayWith, "Error: player needs to have enough funds to play");
         require(balances[msg.sender] >= stake, "Error: player needs to have enough funds to play");
+        require(amountToPlayWith >= stake, "Error: player needs to have enough funds to play");
         
         emit LogSubmitMove(msg.sender, msg.value);
-
-        if(decryptMove(player1, p1HashedMove) == decryptMove(msg.sender, hashedMove)) {
-            resetGame();
-            return true;
-        }
         
         if(player1 == address(0)) {
             player1 = msg.sender;
             p1HashedMove = hashedMove;
-            stake = balances[msg.sender];
+            stake = amountToPlayWith;
             revokeAfter = block.number.add(revokePeriod);
         } else if (player2 == address(0)) {
             player2 = msg.sender;
             p2HashedMove = hashedMove;
-            endGame();
         }
+
+        usedHashes[hashedMove] = true;
+
         return true;
         
     }
+
+    function revealMove(uint8 move, bytes32 plainPassword) public returns (bool) {
+        decryptMove(move, plainPassword);
+        emit LogRevealMove(msg.sender, move, plainPassword);
+        //now, if both players have revealed their moves, proceeed with either resetting the game or choosing the winner
+        if(player1move != PossibleMoves.NotPlayedYet && player2move != PossibleMoves.NotPlayedYet) {
+            if(player1move == player2move) {
+                resetGame();
+            } else {
+                endGame();
+            }
+        }
+        return true;
+    }
     
     function endGame() internal {
+        //just additional check
+        require(player1move != PossibleMoves.NotPlayedYet, "Error: player1 move not revealed");
+        require(player2move != PossibleMoves.NotPlayedYet, "Error: player2 move not revealed");
+        emit LogEndGame(msg.sender, player1, player2);
         uint winner = chooseWinner();
         if(winner == 1) {
             require(balances[player2] >= stake, "Error: not enough funds for player 2");
@@ -123,17 +144,17 @@ contract RockPaperScissors is Pausable {
     }
     
     function resetGame() internal {
+        emit LogResetGame(msg.sender, player1, player2);
         player1 = address(0);
         player2 = address(0);
         revokeAfter = 0;
         stake = 0;
+        player1move = PossibleMoves.NotPlayedYet;
+        player2move = PossibleMoves.NotPlayedYet;
     }
     
     function chooseWinner() internal view returns (uint) {
-        
-        PossibleMoves player1move = decryptMove(player1, p1HashedMove);
-        PossibleMoves player2move = decryptMove(player2, p2HashedMove);
-        
+                
         if(player1move == PossibleMoves.Rock) {
             if(player2move == PossibleMoves.Paper) {
                 return 2;

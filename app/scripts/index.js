@@ -152,8 +152,8 @@ const App = {
   },
 
   submitMove1: async function () {
-    let hashedMove = await instance.encryptMove(jQuery("#move1").val(), { from: player1 });
-    let txHash = await instance.submitMove.sendTransaction(hashedMove, { from: player1, value: convertToWei(jQuery("#stake1").val()), gas: 1800000 })
+    let hashedMove = await instance.encryptMove(jQuery("#move1").val(), jQuery("#pass1").val(), { from: player1 });
+    let txHash = await instance.submitMove.sendTransaction(hashedMove, convertToWei(jQuery("#amountToPlaywith1").val()), { from: player1, value: convertToWei(jQuery("#stake1").val()), gas: 1800000 })
     let success = await this.followUpTransaction(txHash);
     if(success) {
       this.refreshBalances()
@@ -162,12 +162,30 @@ const App = {
   },
 
   submitMove2: async function () {
-    let hashedMove = await instance.encryptMove(jQuery("#move2").val(), { from: player2 });
-    let txHash = await instance.submitMove.sendTransaction(hashedMove, { from: player2, value: convertToWei(jQuery("#stake2").val()), gas: 1800000 })
+    let hashedMove = await instance.encryptMove(jQuery("#move2").val(), jQuery("#pass2").val(), { from: player2 });
+    let txHash = await instance.submitMove.sendTransaction(hashedMove, convertToWei(jQuery("#amountToPlaywith2").val()), { from: player2, value: convertToWei(jQuery("#stake2").val()), gas: 1800000 })
     let success = await this.followUpTransaction(txHash);
     if(success) {
       this.refreshBalances()
       console.log('success');
+    }
+  },
+
+  revealMove1: async function () {
+    let txHash = await instance.revealMove.sendTransaction(jQuery("#move1").val(), jQuery("#pass1").val(), { from: player1 })
+    let success = await this.followUpTransaction(txHash);
+    if(success) {
+      this.refreshBalances()
+      console.log('success1');
+    }
+  },
+
+  revealMove2: async function () {
+    let txHash = await instance.revealMove.sendTransaction(jQuery("#move2").val(), jQuery("#pass2").val(), { from: player2 })
+    let success = await this.followUpTransaction(txHash);
+    if(success) {
+      this.refreshBalances()
+      console.log('success2');
     }
   },
 
