@@ -36,7 +36,7 @@ contract RockPaperScissors is Pausable {
     }
     
     function encryptMove(uint8 move, bytes32 plainPassword) public view returns (bytes32) {
-        require(move != 0, "Error: you need to submit a valid move");
+        require(move >= 1 && move <= 3, "Error: you need to submit a valid move");
         require(plainPassword != "", "Error: you need to submit a valid password");
         return keccak256(abi.encodePacked(move, plainPassword, msg.sender, address(this)));
     }

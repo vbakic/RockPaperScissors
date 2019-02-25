@@ -118,10 +118,10 @@ const App = {
 
   refreshBalances: async function () {
     const self = this
-    self.refreshOwnerInfo()
-    self.refreshAccountBalances()
-    self.refreshContractStakes()
-    self.updateContractState()
+    await self.refreshOwnerInfo()
+    await self.refreshAccountBalances()
+    await self.refreshContractStakes()
+    await self.updateContractState()
     const balance = await web3.eth.getBalancePromise(instance.address)
     jQuery('#contract').val(convertToEther(balance))
   },
