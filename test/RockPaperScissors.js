@@ -158,23 +158,23 @@ contract("RockPaperScissors", accounts => {
 
         it("should reject double reveal", async () => {
             let moveHash = await RockPaperScissorsRunning.encryptMove(1, "pass2", { from: secondAccount });
-            let tx0 = await RockPaperScissorsRunning.joinGame(gameHash, amountWei, moveHash, { from: secondAccount, value: amountWei });
+            let tx0 = await RockPaperScissorsRunning.joinGame(gameHash, moveHash, { from: secondAccount, value: amountWei });
             checkIfSuccessfulTransaction(tx0, secondAccount, "LogJoinGame");
             checkCorrectAmount(tx0);
-            let tx2 = await RockPaperScissorsRunning.revealMoveP2(1, "pass2", gameHash, { from: secondAccount });
+            let tx2 = await RockPaperScissorsRunning.revealMove(1, "pass2", gameHash, { from: secondAccount });
             checkIfSuccessfulTransaction(tx2, secondAccount, "LogRevealMove");
             await expectedException(async() => {
-                await RockPaperScissorsRunning.revealMoveP2(1, "pass2", gameHash, { from: secondAccount });
+                await RockPaperScissorsRunning.revealMove(1, "pass2", gameHash, { from: secondAccount });
             });
         });
 
         it("should reject invalid move reveal", async () => {
             let moveHash = await RockPaperScissorsRunning.encryptMove(1, "pass2", { from: secondAccount });
-            let tx0 = await RockPaperScissorsRunning.joinGame(gameHash, amountWei, moveHash, { from: secondAccount, value: amountWei });
+            let tx0 = await RockPaperScissorsRunning.joinGame(gameHash, moveHash, { from: secondAccount, value: amountWei });
             checkIfSuccessfulTransaction(tx0, secondAccount, "LogJoinGame");
             checkCorrectAmount(tx0);
             await expectedException(async() => {
-                await RockPaperScissorsRunning.revealMoveP1(2, "pass1111", gameHash, { from: firstAccount });
+                await RockPaperScissorsRunning.revealMove(2, "pass1111", gameHash, { from: firstAccount });
             });
         });
 
@@ -187,13 +187,13 @@ contract("RockPaperScissors", accounts => {
 
         it("should reject hash that has been used in the past", async () => {
             let moveHash = await RockPaperScissorsRunning.encryptMove(1, "pass2", { from: secondAccount });
-            let tx0 = await RockPaperScissorsRunning.joinGame(gameHash, amountWei, moveHash, { from: secondAccount, value: amountWei });
+            let tx0 = await RockPaperScissorsRunning.joinGame(gameHash, moveHash, { from: secondAccount, value: amountWei });
             checkIfSuccessfulTransaction(tx0, secondAccount, "LogJoinGame");
             checkCorrectAmount(tx0);
 
-            let tx1 = await RockPaperScissorsRunning.revealMoveP1(2, "pass1", gameHash, { from: firstAccount });
+            let tx1 = await RockPaperScissorsRunning.revealMove(2, "pass1", gameHash, { from: firstAccount });
             checkIfSuccessfulTransaction(tx1, firstAccount, "LogRevealMove");
-            let tx2 = await RockPaperScissorsRunning.revealMoveP2(1, "pass2", gameHash, { from: secondAccount });
+            let tx2 = await RockPaperScissorsRunning.revealMove(1, "pass2", gameHash, { from: secondAccount });
             checkIfSuccessfulTransaction(tx2, secondAccount, "LogRevealMove");
 
             await expectedException(async() => {
@@ -201,29 +201,22 @@ contract("RockPaperScissors", accounts => {
             });
         });
 
-        it("should reject if amount to play with is higher than the balance", async () => {
-            let moveHash = await RockPaperScissorsRunning.encryptMove(1, "pass2", { from: secondAccount });
-            await expectedException(async() => {
-                await RockPaperScissorsRunning.joinGame(gameHash, 2*amountWei, moveHash, { from: secondAccount, value: amountWei });
-            });
-        });
-
         it("should reject if amount to play with is lower than stake", async () => {
             let moveHash = await RockPaperScissorsRunning.encryptMove(1, "pass2", { from: secondAccount });
             await expectedException(async() => {
-                await RockPaperScissorsRunning.joinGame(gameHash, amountWei/2, moveHash, { from: secondAccount, value: amountWei });
+                await RockPaperScissorsRunning.joinGame(gameHash, moveHash, { from: secondAccount, value: amountWei/2 });
             });
         });
 
         it("withdraw test", async () => {
             let moveHash = await RockPaperScissorsRunning.encryptMove(1, "pass2", { from: secondAccount });
-            let tx0 = await RockPaperScissorsRunning.joinGame(gameHash, amountWei, moveHash, { from: secondAccount, value: amountWei });
+            let tx0 = await RockPaperScissorsRunning.joinGame(gameHash, moveHash, { from: secondAccount, value: amountWei });
             checkIfSuccessfulTransaction(tx0, secondAccount, "LogJoinGame");
             checkCorrectAmount(tx0);
 
-            let tx1 = await RockPaperScissorsRunning.revealMoveP1(2, "pass1", gameHash, { from: firstAccount });
+            let tx1 = await RockPaperScissorsRunning.revealMove(2, "pass1", gameHash, { from: firstAccount });
             checkIfSuccessfulTransaction(tx1, firstAccount, "LogRevealMove");
-            let tx2 = await RockPaperScissorsRunning.revealMoveP2(1, "pass2", gameHash, { from: secondAccount });
+            let tx2 = await RockPaperScissorsRunning.revealMove(1, "pass2", gameHash, { from: secondAccount });
             checkIfSuccessfulTransaction(tx2, secondAccount, "LogRevealMove");
 
             let player1Stake = await RockPaperScissorsRunning.balances(firstAccount, {from: firstAccount});
@@ -235,16 +228,16 @@ contract("RockPaperScissors", accounts => {
 
         it("should handle the case when player 2 plays with more than necessary", async () => {
             let moveHash = await RockPaperScissorsRunning.encryptMove(1, "pass2", { from: secondAccount });
-            let tx0 = await RockPaperScissorsRunning.joinGame(gameHash, 4*amountWei, moveHash, { from: secondAccount, value: 4*amountWei });
+            let tx0 = await RockPaperScissorsRunning.joinGame(gameHash, moveHash, { from: secondAccount, value: 4*amountWei });
             checkIfSuccessfulTransaction(tx0, secondAccount, "LogJoinGame");
             assert.strictEqual(parseInt(tx0.logs[0].args.amount.toNumber()), 4*amountWei, "Wrong amount");
 
             let player2Stake = await RockPaperScissorsRunning.balances(secondAccount, {from: secondAccount});
             assert.strictEqual(3*amountWei, player2Stake.toNumber()); //because contract took only one amountWei from him
 
-            let tx1 = await RockPaperScissorsRunning.revealMoveP1(2, "pass1", gameHash, { from: firstAccount });
+            let tx1 = await RockPaperScissorsRunning.revealMove(2, "pass1", gameHash, { from: firstAccount });
             checkIfSuccessfulTransaction(tx1, firstAccount, "LogRevealMove");
-            let tx2 = await RockPaperScissorsRunning.revealMoveP2(1, "pass2", gameHash, { from: secondAccount });
+            let tx2 = await RockPaperScissorsRunning.revealMove(1, "pass2", gameHash, { from: secondAccount });
             checkIfSuccessfulTransaction(tx2, secondAccount, "LogRevealMove");
 
             let player1Stake = await RockPaperScissorsRunning.balances(firstAccount, {from: firstAccount});
@@ -261,13 +254,13 @@ contract("RockPaperScissors", accounts => {
 
         it("should reset the game if both players make same move, both players should be able to withdraw funds", async () => {
             let moveHash = await RockPaperScissorsRunning.encryptMove(2, "pass2", { from: secondAccount });
-            let tx0 = await RockPaperScissorsRunning.joinGame(gameHash, amountWei, moveHash, { from: secondAccount, value: amountWei });
+            let tx0 = await RockPaperScissorsRunning.joinGame(gameHash, moveHash, { from: secondAccount, value: amountWei });
             checkIfSuccessfulTransaction(tx0, secondAccount, "LogJoinGame");
             checkCorrectAmount(tx0);
 
-            let tx1 = await RockPaperScissorsRunning.revealMoveP1(2, "pass1", gameHash, { from: firstAccount });
+            let tx1 = await RockPaperScissorsRunning.revealMove(2, "pass1", gameHash, { from: firstAccount });
             checkIfSuccessfulTransaction(tx1, firstAccount, "LogRevealMove");
-            let tx3 = await RockPaperScissorsRunning.revealMoveP2(2, "pass2", gameHash, { from: secondAccount });
+            let tx3 = await RockPaperScissorsRunning.revealMove(2, "pass2", gameHash, { from: secondAccount });
             checkIfSuccessfulTransaction(tx3, secondAccount, "LogRevealMove");
             
             let player1Stake = await RockPaperScissorsRunning.balances(firstAccount, {from: firstAccount});
@@ -285,13 +278,13 @@ contract("RockPaperScissors", accounts => {
 
         it("player should be able to use its contract balance as stake for a game", async () => {
             let moveHash = await RockPaperScissorsRunning.encryptMove(1, "pass2", { from: secondAccount });
-            let tx0 = await RockPaperScissorsRunning.joinGame(gameHash, amountWei, moveHash, { from: secondAccount, value: amountWei });
+            let tx0 = await RockPaperScissorsRunning.joinGame(gameHash, moveHash, { from: secondAccount, value: amountWei });
             checkIfSuccessfulTransaction(tx0, secondAccount, "LogJoinGame");
             checkCorrectAmount(tx0);
 
-            let tx3 = await RockPaperScissorsRunning.revealMoveP1(2, "pass1", gameHash, { from: firstAccount });
+            let tx3 = await RockPaperScissorsRunning.revealMove(2, "pass1", gameHash, { from: firstAccount });
             checkIfSuccessfulTransaction(tx3, firstAccount, "LogRevealMove");
-            let tx4 = await RockPaperScissorsRunning.revealMoveP2(1, "pass2", gameHash, { from: secondAccount });
+            let tx4 = await RockPaperScissorsRunning.revealMove(1, "pass2", gameHash, { from: secondAccount });
             checkIfSuccessfulTransaction(tx4, secondAccount, "LogRevealMove");
             
             //make sure the player 1 now has 2x amountWei
@@ -304,13 +297,13 @@ contract("RockPaperScissors", accounts => {
             assert.strictEqual(parseInt(tx1.logs[0].args.amount.toNumber()), 0, "Wrong amount");
             //player 2 will now have to match the stake player 1 has, and that is 2x amountWei
             let hashedMove2 = await RockPaperScissorsRunning.encryptMove(2, "pass4", { from: secondAccount });
-            let tx2 = await RockPaperScissorsRunning.joinGame(gameHash2, 2*amountWei, hashedMove2, { from: secondAccount, value: 2*amountWei });
+            let tx2 = await RockPaperScissorsRunning.joinGame(gameHash2, hashedMove2, { from: secondAccount, value: 2*amountWei });
             checkIfSuccessfulTransaction(tx2, secondAccount, "LogJoinGame");
             assert.strictEqual(parseInt(tx2.logs[0].args.amount.toNumber()), 2*amountWei, "Wrong amount");
 
-            let tx5 = await RockPaperScissorsRunning.revealMoveP1(3, "pass3", gameHash2, { from: firstAccount });
+            let tx5 = await RockPaperScissorsRunning.revealMove(3, "pass3", gameHash2, { from: firstAccount });
             checkIfSuccessfulTransaction(tx5, firstAccount, "LogRevealMove");
-            let tx6 = await RockPaperScissorsRunning.revealMoveP2(2, "pass4", gameHash2, { from: secondAccount });
+            let tx6 = await RockPaperScissorsRunning.revealMove(2, "pass4", gameHash2, { from: secondAccount });
             checkIfSuccessfulTransaction(tx6, secondAccount, "LogRevealMove");
 
             //make sure the player 1 now has 4x amountWei
@@ -321,7 +314,7 @@ contract("RockPaperScissors", accounts => {
 
         it("should support multiple games at a time", async () => {
             let moveHash = await RockPaperScissorsRunning.encryptMove(1, "pass2", { from: secondAccount });
-            let tx0 = await RockPaperScissorsRunning.joinGame(gameHash, amountWei, moveHash, { from: secondAccount, value: amountWei });
+            let tx0 = await RockPaperScissorsRunning.joinGame(gameHash, moveHash, { from: secondAccount, value: amountWei });
             checkIfSuccessfulTransaction(tx0, secondAccount, "LogJoinGame");
             checkCorrectAmount(tx0);
             
@@ -332,19 +325,19 @@ contract("RockPaperScissors", accounts => {
 
             //player 2 will now have to match the stake player 1 has, and that is 2x amountWei
             let hashedMove3 = await RockPaperScissorsRunning.encryptMove(2, "pass4", { from: thirdAccount });
-            let tx2 = await RockPaperScissorsRunning.joinGame(gameHash2, amountWei, hashedMove3, { from: thirdAccount, value: amountWei });
+            let tx2 = await RockPaperScissorsRunning.joinGame(gameHash2, hashedMove3, { from: thirdAccount, value: amountWei });
             checkIfSuccessfulTransaction(tx2, thirdAccount, "LogJoinGame");
             checkCorrectAmount(tx2);
 
-            let tx3 = await RockPaperScissorsRunning.revealMoveP1(2, "pass1", gameHash, { from: firstAccount });
+            let tx3 = await RockPaperScissorsRunning.revealMove(2, "pass1", gameHash, { from: firstAccount });
             checkIfSuccessfulTransaction(tx3, firstAccount, "LogRevealMove");
-            let tx4 = await RockPaperScissorsRunning.revealMoveP2(1, "pass2", gameHash, { from: secondAccount });
+            let tx4 = await RockPaperScissorsRunning.revealMove(1, "pass2", gameHash, { from: secondAccount });
             checkIfSuccessfulTransaction(tx4, secondAccount, "LogRevealMove");
 
 
-            let tx5 = await RockPaperScissorsRunning.revealMoveP1(3, "pass3", gameHash2, { from: firstAccount });
+            let tx5 = await RockPaperScissorsRunning.revealMove(3, "pass3", gameHash2, { from: firstAccount });
             checkIfSuccessfulTransaction(tx5, firstAccount, "LogRevealMove");
-            let tx6 = await RockPaperScissorsRunning.revealMoveP2(2, "pass4", gameHash2, { from: thirdAccount });
+            let tx6 = await RockPaperScissorsRunning.revealMove(2, "pass4", gameHash2, { from: thirdAccount });
             checkIfSuccessfulTransaction(tx6, thirdAccount, "LogRevealMove");
 
             //make sure the player 1 now has 4x amountWei
@@ -372,25 +365,25 @@ contract("RockPaperScissors", accounts => {
             assert.equal(await RockPaperScissorsRunning.getState(), 1);
             let moveHash = await RockPaperScissorsRunning.encryptMove(1, "pass2", { from: secondAccount });
             await expectedException(async() => {
-                await RockPaperScissorsRunning.joinGame(gameHash, amountWei/2, moveHash, { from: secondAccount, value: amountWei/2 });
+                await RockPaperScissorsRunning.joinGame(gameHash, moveHash, { from: secondAccount, value: amountWei/2 });
             });
         });
 
         it("should reject reveal if there is no player 2 move yet", async () => {
             await expectedException(async() => {
-                await RockPaperScissorsRunning.revealMoveP1(2, "pass1", gameHash, { from: firstAccount });
+                await RockPaperScissorsRunning.revealMove(2, "pass1", gameHash, { from: firstAccount });
             });
         });
 
         it("should reject withdraw when paused", async () => {
             let moveHash = await RockPaperScissorsRunning.encryptMove(1, "pass2", { from: secondAccount });
-            let tx0 = await RockPaperScissorsRunning.joinGame(gameHash, amountWei, moveHash, { from: secondAccount, value: amountWei });
+            let tx0 = await RockPaperScissorsRunning.joinGame(gameHash, moveHash, { from: secondAccount, value: amountWei });
             checkIfSuccessfulTransaction(tx0, secondAccount, "LogJoinGame");
             checkCorrectAmount(tx0);
 
-            let tx3 = await RockPaperScissorsRunning.revealMoveP1(2, "pass1", gameHash, { from: firstAccount });
+            let tx3 = await RockPaperScissorsRunning.revealMove(2, "pass1", gameHash, { from: firstAccount });
             checkIfSuccessfulTransaction(tx3, firstAccount, "LogRevealMove");
-            let tx4 = await RockPaperScissorsRunning.revealMoveP2(1, "pass2", gameHash, { from: secondAccount });
+            let tx4 = await RockPaperScissorsRunning.revealMove(1, "pass2", gameHash, { from: secondAccount });
             checkIfSuccessfulTransaction(tx4, secondAccount, "LogRevealMove");
 
             let tx = await RockPaperScissorsRunning.pauseContract({ from: firstAccount });
@@ -403,12 +396,12 @@ contract("RockPaperScissors", accounts => {
 
         it("should reject withdraw when killed", async () => {
             let moveHash = await RockPaperScissorsRunning.encryptMove(1, "pass2", { from: secondAccount });
-            let tx0 = await RockPaperScissorsRunning.joinGame(gameHash, amountWei, moveHash, { from: secondAccount, value: amountWei });
+            let tx0 = await RockPaperScissorsRunning.joinGame(gameHash, moveHash, { from: secondAccount, value: amountWei });
             checkIfSuccessfulTransaction(tx0, secondAccount, "LogJoinGame");
             checkCorrectAmount(tx0);
-            let tx3 = await RockPaperScissorsRunning.revealMoveP1(2, "pass1", gameHash, { from: firstAccount });
+            let tx3 = await RockPaperScissorsRunning.revealMove(2, "pass1", gameHash, { from: firstAccount });
             checkIfSuccessfulTransaction(tx3, firstAccount, "LogRevealMove");
-            let tx4 = await RockPaperScissorsRunning.revealMoveP2(1, "pass2", gameHash, { from: secondAccount });
+            let tx4 = await RockPaperScissorsRunning.revealMove(1, "pass2", gameHash, { from: secondAccount });
             checkIfSuccessfulTransaction(tx4, secondAccount, "LogRevealMove");
             let tx = await RockPaperScissorsRunning.pauseContract({ from: firstAccount });
             checkIfSuccessfulTransaction(tx, firstAccount, "LogPauseContract");
@@ -450,7 +443,7 @@ contract("RockPaperScissors", accounts => {
             assert.strictEqual(0, player1Stake.toNumber());
             
             let moveHash = await RockPaperScissorsRunning.encryptMove(1, "pass2", { from: secondAccount });
-            let tx0 = await RockPaperScissorsRunning.joinGame(gameHash, amountWei, moveHash, { from: secondAccount, value: amountWei });
+            let tx0 = await RockPaperScissorsRunning.joinGame(gameHash, moveHash, { from: secondAccount, value: amountWei });
             checkIfSuccessfulTransaction(tx0, secondAccount, "LogJoinGame");
             checkCorrectAmount(tx0);
 
