@@ -9,25 +9,29 @@ contract RockPaperScissors is Pausable {
     
     event LogWithdrawEther(address indexed caller, uint amount);
     event LogChangeRevokePeriod(address indexed caller, uint newrevokePeriod);
-    event LogPullOutFromGame(address indexed caller);
-    event LogSubmitMove(address indexed caller, uint amount, uint amountToPlayWith, bytes32 hashedMove, uint revokePeriod);
-    event LogRevealMove(address indexed caller, uint8 move, bytes32 plainPassword);
+    event LogPullOutFromGame(address indexed caller, bytes32 gameHash);
+    event LogStartGame(address indexed caller, uint amount, uint amountToPlayWith, bytes32 gameHash, uint revokePeriod);
+    event LogJoinGame(address indexed caller, uint amount, uint amountToPlayWith, bytes32 gameHash);
+    event LogRevealMove(address indexed caller, uint8 move, bytes32 plainPassword, bytes32 gameHash);
     
     enum PossibleMoves { NotPlayedYet, Rock, Paper, Scissors }
     
     uint public revokePeriodMin;
     uint public revokeAfter;
     
-    struct Move {
-        PossibleMoves move;
+    struct Game {
+        PossibleMoves move1;
+        PossibleMoves move2;
         uint stake;
-        address player;
+        address player1;
+        address player2;
         uint revokeAfter;
+        bytes32 Player2Hash;
     }
     
     mapping (address => uint) public balances;
-    mapping (bytes32 => Move) public moves;
-    bytes32[] public movesList;
+    mapping (bytes32 => Game) public games;
+    bytes32[] public gamesList;
     
     constructor(uint8 initialState, uint defaultrevokePeriod) public Pausable(initialState) {
         changeRevokePeriod(defaultrevokePeriod);
@@ -57,22 +61,19 @@ contract RockPaperScissors is Pausable {
         return true;
     }
     
-    function pullOutFromGame() public onlyIfAlive onlyIfRunning returns (bool success) {
-        require(movesList.length % 2 == 1, "Error: you are not the only player anymore");
-        bytes32 lastMoveHash = movesList[movesList.length - 1];
-        require(msg.sender == moves[lastMoveHash].player, "Error: you are not the last player");
-        require(block.number >= moves[lastMoveHash].revokeAfter, "Error: you are not yet permitted to pull out from game");
-        emit LogPullOutFromGame(msg.sender);
-        balances[msg.sender] = balances[msg.sender].add(moves[lastMoveHash].stake); //give back the stake
-        bytes32 terminator;
-        movesList.push(terminator); //"terminates" the current game
+    function pullOutFromGame(bytes32 gameHash) public onlyIfAlive onlyIfRunning returns (bool success) {
+        require(games[gameHash].player1 == msg.sender, "Error: not your game");
+        require(games[gameHash].player2 == address(0), "Error: you are not the only player");
+        require(block.number >= games[gameHash].revokeAfter, "Error: you are not yet permitted to pull out from game");
+        emit LogPullOutFromGame(msg.sender, gameHash);
+        balances[msg.sender] = balances[msg.sender].add(games[gameHash].stake); //give back the stake
         return true;
     }
 
-    function submitMove(bytes32 hashedMove, uint amountToPlayWith, uint revokePeriod) 
+    function startGame(bytes32 gameHash, uint amountToPlayWith, uint revokePeriod) 
         public onlyIfAlive onlyIfRunning payable returns(bool success) {
                 
-        require(moves[hashedMove].player == address(0), "Error: you cannot use same hash twice");
+        require(games[gameHash].player1 == address(0), "Error: you cannot use same hash twice");
         require(revokePeriod >= revokePeriodMin, "Error: revoke period too low");
         require(amountToPlayWith > 0, "Error");
 
@@ -83,85 +84,103 @@ contract RockPaperScissors is Pausable {
         }
         require(senderBalance >= PlayerStake, "Error: you do not have enough funds");
 
-        emit LogSubmitMove(msg.sender, msg.value, amountToPlayWith, hashedMove, revokePeriod);
-
-        if(movesList.length % 2 == 1) { //this should be the case of player 2, if player 1 already made the move
-            bytes32 lastElementHash = movesList[movesList.length-1];
-            if(amountToPlayWith > moves[lastElementHash].stake) { //in case player 2 meant to play with more than player 1 stake
-                PlayerStake = moves[lastElementHash].stake; //match it with player 1 stake
-            } else if(amountToPlayWith == moves[lastElementHash].stake) {
-                //do nothing, we're fine
-            } else {
-                assert(false);
-            }
-        } else {
-            moves[hashedMove].revokeAfter = block.number.add(revokePeriod); //we only need it for player1
-        }
+        emit LogStartGame(msg.sender, msg.value, amountToPlayWith, gameHash, revokePeriod);
 
         balances[msg.sender] = senderBalance.sub(PlayerStake);
-        moves[hashedMove].player = msg.sender;
-        moves[hashedMove].stake = PlayerStake;
-        movesList.push(hashedMove);
+        games[gameHash].player1 = msg.sender;
+        games[gameHash].stake = PlayerStake;
+        games[gameHash].revokeAfter = block.number.add(revokePeriod);
+        gamesList.push(gameHash);
 
         return true;        
     }
 
-    function revealMove(uint8 move, bytes32 plainPassword) public returns (bool) {
+    function joinGame(bytes32 gameHash, uint amountToPlayWith, bytes32 moveHash) 
+        public onlyIfAlive onlyIfRunning payable returns(bool success) {
+                
+        require(games[gameHash].player2 == address(0), "Error: you cannot use same hash twice");
+        require(amountToPlayWith > 0, "Error");
 
-        bytes32 moveHash = encryptMove(move, plainPassword);
-        require(moves[moveHash].player == msg.sender, "Error: not your move!");
-        require(moves[moveHash].move == PossibleMoves.NotPlayedYet, "Error: move already revealed!");
+        uint senderBalance = balances[msg.sender];
+        uint PlayerStake = amountToPlayWith;
+        if(msg.value > 0) {
+            senderBalance = senderBalance.add(msg.value);
+        }
+        require(senderBalance >= PlayerStake, "Error: you do not have enough funds");
 
-        if(movesList.length % 2 == 1 && moves[movesList[movesList.length-1]].player == msg.sender) {
-            assert(false); //in case there is no player 2 move yet
+        emit LogJoinGame(msg.sender, msg.value, amountToPlayWith, gameHash);
+
+        if(amountToPlayWith > games[gameHash].stake) { //in case player 2 meant to play with more than player 1 stake
+            PlayerStake = games[gameHash].stake; //match it with player 1 stake
+        } else if(amountToPlayWith == games[gameHash].stake) {
+            //do nothing, we're fine
+        } else {
+            assert(false);
         }
 
-        moves[moveHash].move = PossibleMoves(move);
-                
-        emit LogRevealMove(msg.sender, move, plainPassword);
+        balances[msg.sender] = senderBalance.sub(PlayerStake);
+        games[gameHash].player2 = msg.sender;
+        games[gameHash].Player2Hash = moveHash;
 
-        endOrResetGame(findOtherPlayer(moveHash), moveHash);
+        return true;        
+    }
+
+    function revealMoveP1(uint8 move, bytes32 plainPassword, bytes32 gameHash) public returns (bool) {
+
+        bytes32 gameHashReconstructed = encryptMove(move, plainPassword);
+        require(gameHashReconstructed == gameHash, "Error: hashes not matching");
+
+        require(games[gameHash].player1 == msg.sender, "Error: not your move");
+        require(games[gameHash].player2 != address(0), "Error: prevent reveal if there is no other player yet");
+        require(games[gameHash].move1 == PossibleMoves.NotPlayedYet, "Error: move already revealed!");
+        games[gameHash].move1 = PossibleMoves(move);
+                
+        emit LogRevealMove(msg.sender, move, plainPassword, gameHash);
+
+        endOrResetGame(gameHash);
 
         return true;
     }
 
-    function findOtherPlayer(bytes32 moveHash) internal view returns (bytes32) {
-        for(uint i = 0; i < movesList.length; i++) {
-            if(movesList[i] == moveHash) {
-                if(i % 2 == 0) {
-                    return movesList[i+1];
-                } else {
-                    return movesList[i-1];
-                }
-            }
-        }
-        assert(false);
+    function revealMoveP2(uint8 move, bytes32 plainPassword, bytes32 gameHash) public returns (bool) {
+
+        bytes32 moveHashReconstructed = encryptMove(move, plainPassword);
+        require(moveHashReconstructed == games[gameHash].Player2Hash, "Error: hashes not matching");
+
+        require(games[gameHash].player2 == msg.sender, "Error: not your move");
+        require(games[gameHash].player1 != address(0), "Error: prevent reveal if there is no other player yet");
+        require(games[gameHash].move2 == PossibleMoves.NotPlayedYet, "Error: move already revealed!");
+        games[gameHash].move2 = PossibleMoves(move);
+                
+        emit LogRevealMove(msg.sender, move, plainPassword, gameHash);
+
+        endOrResetGame(gameHash);
+
+        return true;
     }
 
-    function endOrResetGame(bytes32 moveHashP1, bytes32 moveHashP2) internal returns (bool) {
+    function endOrResetGame(bytes32 gameHash) internal returns (bool) {
         
-        if(moves[moveHashP1].move == PossibleMoves.NotPlayedYet) return false;
-        if(moves[moveHashP2].move == PossibleMoves.NotPlayedYet) return false;
-        if(moves[moveHashP1].stake == 0) return false;
-        if(moves[moveHashP2].stake == 0) return false;
+        if(games[gameHash].move1 == PossibleMoves.NotPlayedYet) return false;
+        if(games[gameHash].move2 == PossibleMoves.NotPlayedYet) return false;
+        if(games[gameHash].stake == 0) return false;
 
-        if(moves[moveHashP1].move == moves[moveHashP2].move) {
-            resetGame(moveHashP1, moveHashP2);
+        if(games[gameHash].move1 == games[gameHash].move2) {
+            resetGame(gameHash);
         } else {
-            endGame(moveHashP1, moveHashP2);
+            endGame(gameHash);
         }
 
-        moves[moveHashP1].stake = 0;
-        moves[moveHashP2].stake = 0;
+        games[gameHash].stake = 0;
 
         return true;
     }
     
-    function endGame(bytes32 moveHashP1, bytes32 moveHashP2) internal {
-        address player1 = moves[moveHashP1].player;
-        address player2 = moves[moveHashP2].player;
-        uint stake = moves[moveHashP1].stake;
-        uint winner = chooseWinner(moveHashP1, moveHashP2);
+    function endGame(bytes32 gameHash) internal {
+        address player1 = games[gameHash].player1;
+        address player2 = games[gameHash].player2;
+        uint stake = games[gameHash].stake;
+        uint winner = chooseWinner(gameHash);
         if(winner == 1) {
             balances[player1] = balances[player1].add(2*stake);
         } else if(winner == 2) {
@@ -171,15 +190,15 @@ contract RockPaperScissors is Pausable {
         }
     }
     
-    function resetGame(bytes32 moveHashP1, bytes32 moveHashP2) internal {
-        balances[moves[moveHashP1].player] = balances[moves[moveHashP1].player].add(moves[moveHashP1].stake);
-        balances[moves[moveHashP2].player] = balances[moves[moveHashP2].player].add(moves[moveHashP2].stake);
+    function resetGame(bytes32 gameHash) internal {
+        balances[games[gameHash].player1] = balances[games[gameHash].player1].add(games[gameHash].stake);
+        balances[games[gameHash].player2] = balances[games[gameHash].player2].add(games[gameHash].stake);
     }
     
-    function chooseWinner(bytes32 moveHashP1, bytes32 moveHashP2) internal view returns (uint) {
+    function chooseWinner(bytes32 gameHash) internal view returns (uint) {
 
-        PossibleMoves player1move = moves[moveHashP1].move;
-        PossibleMoves player2move = moves[moveHashP2].move;
+        PossibleMoves player1move = games[gameHash].move1;
+        PossibleMoves player2move = games[gameHash].move2;
 
         if(player1move == PossibleMoves.Rock) {
             if(player2move == PossibleMoves.Paper) {
@@ -207,6 +226,8 @@ contract RockPaperScissors is Pausable {
                 return 1;
             }
         }
+
+        assert(false);
         
     }
     
