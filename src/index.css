@@ -1,0 +1,10 @@
+body {
+  margin: 0;
+  padding: 0;
+  font-family: sans-serif;
+}
+
+@import '~react-widgets/lib/less/react-widgets';
+
+@font-size: 16px;
+@input-height: 2.5em; // at 16px, this an even 40px
